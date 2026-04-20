@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atlanta Neighborhood Explorer</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      
+    }
+    header {
+      background-color: #333;
+      color: white;
+      padding: 10px;
+      text-align: center;
+    }
+    #sidebar {
+      width: 300px;
+      right: 0;
+      max-height: 80vh;
+      overflow-y: auto;
+      background-color: #f4f4f4;
+      padding: 15px;
+      border-right: 2px solid gray;
+      z-index: 1000;
+      position: absolute;
+    }
+    .note {
+      padding: 10px;
+      background-color: #f9f9f9;
+      text-align : center;
+    }
+    #map {
+      height: 600px;
+      position: relative;
+    }
+    
+    legend {
+      background: white;
+      padding: 10px;
+      line-height: 18px;
+      color: #555;
+      border-radius: 5px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h2>Atlanta Neighborhood Explorer</h2>
+  </header>
+
+  <div class="note">
+    This tool explores different demographic information about Atlanta's Neighborhood Statistical Areas (NSAs).
+    Click on each NSA to learn more.
+  </div>
+<div id="sidebar">
+    <h3>Legend</h3>
+    <p><strong>Population:</strong></p>
+    <div><span style="background-color: #238b45; width: 20px; height: 20px; display: inline-block;"></span> > 13,991</div>
+    <div><span style="background-color: #41ab5d; width: 20px; height: 20px; display: inline-block;"></span> 9,218 - 13,991</div>
+    <div><span style="background-color: #74c476; width: 20px; height: 20px; display: inline-block;"></span> 5,289 - 9,218</div>
+    <div><span style="background-color: #a1d99b; width: 20px; height: 20px; display: inline-block;"></span> 3,882 - 5,289</div>
+    <div><span style="background-color: #c7e9c0; width: 20px; height: 20px; display: inline-block;"></span> 2,642 - 3,882</div>
+    <div><span style="background-color: #edf8e9; width: 20px; height: 20px; display: inline-block;"></span> >0 - 2,642</div>
+
+    <p><strong>Median Home Value:</strong></p>
+    <div><span style="background-color: #08306b; width: 20px; height: 20px; display: inline-block;"></span> > $1,016,605</div>
+    <div><span style="background-color: #08519c; width: 20px; height: 20px; display: inline-block;"></span> $710,833 - $1,016,605</div>
+    <div><span style="background-color: #2171b5; width: 20px; height: 20px; display: inline-block;"></span> $456,517 - $710,833</div>
+    <div><span style="background-color: #4292c6; width: 20px; height: 20px; display: inline-block;"></span> $255,841 - $456,517</div>
+    <div><span style="background-color: #6baed6; width: 20px; height: 20px; display: inline-block;"></span> >$0 - $255,841</div>
+    <p><strong>Median Gross Rent:</strong></p>
+    <div><span style="background-color: #4d004b; width:
+  20px; height: 20px; display: inline-block;"></span> > $2,500</div>
+    <div><span style="background-color: #4a1486; width: 20px; height: 20px; display: inline-block;"></span> $2,000 - $2,500</div>
+    <div><span style="background-color: #6a51a3; width: 20px; height: 20px; display: inline-block;"></span> $1,500 - $2,000</div>
+    <div><span style="background-color: #807dba; width: 20px; height: 20px; display: inline-block;"></span> $1,000 - $1,500</div>
+    <div><span style="background-color: #9e9ac8; width: 20px; height: 20px; display: inline-block;"></span> $500 - $1,000</div>
+    <div><span style="background-color: #bcbddc; width: 20px; height: 20px; display: inline-block;"></span> >$0 - $500</div>
+
+  </div>
+  <div id="map"></div>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const map = L.map("map").setView([33.7490, -84.3880], 11);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 15,
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(map);
+
+  let geojsonLayer; 
+  let geojsonLayer2;
+  let geojsonLayer3;
+  let geojsonLayer4;
+
+  function formatNumber(value) {
+  return new Intl.NumberFormat('en-US').format(value);
+}
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(value);
+}
+
+  const layerControl = L.control.layers(null, null, { collapsed: false, position: 'bottomleft' }).addTo(map);
+
+  fetch("Official_NSAs_with_Current_Demographic_Data.geojson")
+    .then(response => response.json())
+    .then(data => {
+     geojsonLayer = L.geoJSON(data, {
+         style: function(feature) {
+  return {
+    fillColor: getColorPopulation(feature.properties.populati_1),
+    weight: 1,
+    opacity: 1,
+    color: 'white',
+    fillOpacity: 0.8
+  };
+}, 
+        onEachFeature: (feature, layer) => {
+          layer.on({
+            mouseover: () => layer.setStyle({ weight: 3 }),
+            mouseout: () => geojsonLayer.resetStyle(layer),
+            click: () => {
+              const props = feature.properties;
+              const popupContent = `
+                <strong>${props.NAME}</strong><br/>
+                Population: ${formatNumber(props.populati_1)} 
+              `;
+              layer.bindPopup(popupContent).openPopup();
+            }
+          });
+        }
+      }).addTo(map);
+      layerControl.addOverlay(geojsonLayer, "Population");
+    })
+    .catch(error => console.error("Error loading GeoJSON:", error));
+
+    function getColorPopulation(populati_1) {
+return populati_1 > 13991 ? '#238b45' :
+       populati_1 > 9218 ? '#41ab5d' :
+       populati_1 > 5289  ? '#74c476' :
+       populati_1 > 3882 ? '#a1d99b' :
+       populati_1 > 2642   ? '#c7e9c0' :
+       populati_1 > 0   ? '#edf8e9' :
+                             '#FFEDA0';                                          
+  }
+
+
+fetch("MedianIncome.geojson")
+    .then(response => response.json())
+    .then(data => {
+     geojsonLayer2 = L.geoJSON(data, {
+         style: function(feature) {
+  return {
+    fillColor: getHomeValueColor(feature.properties.homevalue_),
+    weight: 1,
+    opacity: 1,
+    color: 'white',
+    fillOpacity: 0.8
+  };
+},
+        onEachFeature: (feature, layer) => {
+          layer.on({
+            mouseover: () => layer.setStyle({ weight: 3 }),
+            mouseout: () => geojsonLayer2.resetStyle(layer),
+            click: () => {
+              const props = feature.properties;
+              const popupContent = `
+                <strong>${props.NAME}</strong><br/>
+                Median Home Value: ${formatCurrency(props.homevalue_)} 
+              `;
+              layer.bindPopup(popupContent).openPopup();
+            }
+          });
+        }
+      })
+      layerControl.addOverlay(geojsonLayer2, "Median Home Value");
+    })
+    .catch(error => console.error("Error loading GeoJSON:", error));
+
+    
+function getHomeValueColor(homevalue_) {
+    return homevalue_ > 1016605 ? '#08306b' :
+     homevalue_ > 710833  ? '#08519c' :
+     homevalue_ > 456517 ? '#2171b5':
+     homevalue_ > 255841   ? '#4292c6' :
+     homevalue_ > 0   ? '#6baed6' :
+                           '#FFEDA0';                    
+} 
+
+fetch("Rent.geojson")
+  .then(response => response.json())
+  .then(data => {
+    geojsonLayer3 = L.geoJSON(data, {
+      style: function(feature) {
+        return {
+          fillColor: getRentColor(+feature.properties.mMedGrent_e24),
+          weight: 1,
+          opacity: 1,
+          color: 'white',
+          fillOpacity: 0.8
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        layer.on({
+          mouseover: () => layer.setStyle({ weight: 3 }),
+          mouseout: () => geojsonLayer3.resetStyle(layer),
+          click: () => {
+            const props = feature.properties;
+            const popupContent = `
+              <strong>${props.Name}</strong><br/>
+              Median Gross Rent: ${formatCurrency(props.mMedGrent_e24)} 
+            `;
+            layer.bindPopup(popupContent).openPopup();
+          }
+        });
+      }
+    })
+    layerControl.addOverlay(geojsonLayer3, "Median Gross Rent");
+  })
+  .catch(error => console.error("Error loading GeoJSON:", error));
+
+function getRentColor(mMedGrent_e24) {
+    return mMedGrent_e24 > 2500 ? '#4d004b' :
+    mMedGrent_e24 > 2000 ? '#4a1486' :
+     mMedGrent_e24 > 1500  ? '#6a51a3' :
+     mMedGrent_e24 > 1000 ? '#807dba':
+     mMedGrent_e24 > 500   ? '#9e9ac8' :
+     mMedGrent_e24 > 0   ? '#bcbddc' :
+                           '#FFEDA0';                    
+}
+
+fetch ('Atlanta__GA_Parks.geojson')
+  .then(response => response.json())
+  .then(data => {
+    geojsonLayer4 = L.geoJSON(data, {
+      style: function(feature) {
+        return {
+          fillColor: '#228c22',
+          weight: 1,
+          opacity: 1,
+          color: 'white',
+          fillOpacity: 0.7
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        layer.on({
+          mouseover: () => layer.setStyle({ weight: 3 }),
+          mouseout: () => geojsonLayer4.resetStyle(layer),
+          click: () => {
+            const props = feature.properties;
+            const popupContent = `
+              <strong>${props.AllParks_Fields_Park_Name}</strong><br/>
+            `;
+            layer.bindPopup(popupContent).openPopup();
+          }
+        });
+      }
+    })
+    layerControl.addOverlay(geojsonLayer4, "Parks");
+  })
+  .catch(error => console.error("Error loading GeoJSON:", error));
+
+  </script>
+</body>
+<footer>
+  <p style="text-align: center; font-size: 12px; color: #555;">
+    Data sources: Atlanta Regional Commission, U.S. Census Bureau, Fulton County GIS Portal
+    <br/>
+      Tony Benavides, 2026
+  </p>
+</footer>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
